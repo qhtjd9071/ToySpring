@@ -9,11 +9,10 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -59,23 +58,43 @@ public class ToySpring {
         System.out.println("paths : " + paths);
         scanBeans(paths);
 
-        initalSetting();
+        initialSetting();
 
         System.out.println("=========== aookucatuib started ============");
         doRun();
     }
 
-    private static void doRun() throws InvocationTargetException, IllegalAccessException {
+    private static void doRun() throws InvocationTargetException, IllegalAccessException, NoSuchMethodException, InstantiationException {
 
         while ( true ) {
             Scanner sc= new Scanner(System.in);
-            String cmd = sc.nextLine();
+            String query = sc.nextLine();
+            String[] str = query.split("\\?");
+            String cmd = str[0];
+            String params = null;
+            if (str.length != 1) {
+                params = str[1];
+            }
 
             if ( methodContainer.get(cmd) != null ) {
                 Method method = (Method)methodContainer.get(cmd)[0];
                 Object controller = methodContainer.get(cmd)[1];
 
-                method.invoke(controller);
+                Parameter[] parameters = method.getParameters();
+                Object[] objects = new Object[parameters.length];
+                for (int i = 0 ; i < parameters.length ; i++) {
+                    objects[i] = parameters[i].getType().getDeclaredConstructor().newInstance();
+
+                    // mapping parameter
+                    if (params != null) {
+                        mappingParams(params, parameters, objects, i);
+                    }
+                }
+                if (parameters.length == 0) {
+                    method.invoke(controller);
+                } else {
+                    method.invoke(controller, objects);
+                }
             } else {
                 System.out.println("명령어가 없습니다.");
             };
@@ -83,7 +102,21 @@ public class ToySpring {
 
     }
 
-    public static void initalSetting() throws ClassNotFoundException, InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+    private static void mappingParams(String params, Parameter[] parameters, Object[] objects, int i) {
+        String[] paramArr = params.split("&");
+        for (String param : paramArr) {
+            String[] keyValue = param.split("=");
+            String key = keyValue[0];
+            String value = keyValue[1];
+            System.out.println("key : " + key + ", value : " + value);
+            System.out.println(parameters[i].getName());
+            if (key.equals(parameters[i].getName())) {
+                objects[i] = value;
+            }
+        }
+    }
+
+    public static void initialSetting() throws ClassNotFoundException, InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         for (Map.Entry<String, Object> entry : controllerContainer.entrySet()) {
             Class<?> clz = Class.forName(entry.getKey());
             Object object = clz.getDeclaredConstructor().newInstance();
