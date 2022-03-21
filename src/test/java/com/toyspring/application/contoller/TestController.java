@@ -8,6 +8,6 @@ import com.toyspring.application.service.TestService;
 public class TestController {
 
     @Autowired
-    public TestService testService;
+    private TestService testService;
 
 }

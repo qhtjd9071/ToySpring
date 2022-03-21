@@ -1,6 +1,7 @@
 package com.toyspring.core;
 
 import com.toyspring.core.annotation.Autowired;
+import com.toyspring.core.annotation.CommandMapping;
 import com.toyspring.core.annotation.Controller;
 import com.toyspring.core.annotation.Service;
 
@@ -11,9 +12,12 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ToySpring {
@@ -25,6 +29,8 @@ public class ToySpring {
     }
 
     private static final Map<String, Object> serviceContainer = new ConcurrentHashMap<>();
+
+    private static final Map<String, Object[]> methodContainer = new ConcurrentHashMap<>();
 
     public static void run(Class<?> clazz) throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException, ClassNotFoundException {
         Object object = clazz.getDeclaredConstructor().newInstance();
@@ -53,10 +59,31 @@ public class ToySpring {
         System.out.println("paths : " + paths);
         scanBeans(paths);
 
-        process();
+        initalSetting();
+
+        System.out.println("=========== aookucatuib started ============");
+        doRun();
     }
 
-    public static void process() throws ClassNotFoundException, InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+    private static void doRun() throws InvocationTargetException, IllegalAccessException {
+
+        while ( true ) {
+            Scanner sc= new Scanner(System.in);
+            String cmd = sc.nextLine();
+
+            if ( methodContainer.get(cmd) != null ) {
+                Method method = (Method)methodContainer.get(cmd)[0];
+                Object controller = methodContainer.get(cmd)[1];
+
+                method.invoke(controller);
+            } else {
+                System.out.println("명령어가 없습니다.");
+            };
+        }
+
+    }
+
+    public static void initalSetting() throws ClassNotFoundException, InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         for (Map.Entry<String, Object> entry : controllerContainer.entrySet()) {
             Class<?> clz = Class.forName(entry.getKey());
             Object object = clz.getDeclaredConstructor().newInstance();
@@ -69,8 +96,16 @@ public class ToySpring {
                     field.set(object, serviceContainer.get(field.getType().getName())  );//
                 }
             }
-        }
 
+            Method[] methods = clz.getDeclaredMethods();
+            for (Method method : methods) {
+                CommandMapping mapping = method.getAnnotation(CommandMapping.class);
+                if (mapping != null) {
+                    methodContainer.put(mapping.value(), new Object[] {method, object});
+                    System.out.println("command : " + mapping.value());
+                }
+            }
+        }
     }
 
     public static void scanBeans(List<String> paths) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
